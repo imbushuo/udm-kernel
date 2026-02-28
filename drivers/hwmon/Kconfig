@@ -937,6 +937,16 @@ config SENSORS_MCP3021
 	  This driver can also be built as a module.  If so, the module
 	  will be called mcp3021.
 
+config SENSORS_MIKROTIK_FAN_I2C
+	tristate "MikroTik I2C-based Fan Controller"
+	depends on I2C
+	help
+	  If you say yes here you get support for MikroTik I2C-based MCU Fan controller.
+	  This driver is not useful for non-MikroTik devices.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called mikrotik_fan_i2c.
+
 config SENSORS_MLXREG_FAN
 	tristate "Mellanox Mellanox FAN driver"
 	depends on MELLANOX_PLATFORM
