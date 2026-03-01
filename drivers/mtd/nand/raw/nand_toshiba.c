@@ -151,10 +151,20 @@ static int toshiba_nand_init(struct nand_chip *chip)
 	if (nand_is_slc(chip))
 		chip->bbt_options |= NAND_BBT_SCAN2NDPAGE;
 
+	pr_info("Entering toshiba_nand_init\n");
+	pr_info("Model: %s\n", chip->parameters.model);
+	pr_info("Is SLC: %d\n", nand_is_slc(chip));
+	pr_info("Controller ECC mode: %d\n", chip->ecc.mode);
+	pr_info("Chip ID: %x:%x:%x:%x:%x:%x:%x:%x\n", chip->id.data[0], chip->id.data[1], chip->id.data[2], chip->id.data[3],
+		chip->id.data[4], chip->id.data[5], chip->id.data[6], chip->id.data[7]);
+
 	/* Check that chip is BENAND and ECC mode is on-die */
-	if (nand_is_slc(chip) && chip->ecc.mode == NAND_ECC_ON_DIE &&
+	if (nand_is_slc(chip) && chip->ecc.mode != NAND_ECC_NONE &&
 	    chip->id.data[4] & TOSHIBA_NAND_ID4_IS_BENAND)
+	{
+		pr_info("Deteted BENAND, configure alternate ECC behavior");
 		toshiba_nand_benand_init(chip);
+	}
 
 	return 0;
 }
