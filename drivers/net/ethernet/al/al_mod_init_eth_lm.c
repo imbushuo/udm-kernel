@@ -2043,7 +2043,7 @@ int al_mod_eth_lm_link_establish_step(struct al_mod_eth_lm_context	*lm_context,
 			break;
 
 		if (!lock) {
-			al_mod_info("%s: Failed to lock tx channel\n", __func__);
+			al_mod_info("%s: %s: Failed to lock tx channel\n", __func__, lm_context->adapter->name);
 			rc = -EIO;
 			goto exit_error;
 		}

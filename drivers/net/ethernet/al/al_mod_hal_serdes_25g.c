@@ -3372,6 +3372,23 @@ static int al_mod_serdes_25g_mode_get(struct al_mod_serdes_grp_obj *obj,
 	return 0;
 }
 
+static void al_mod_serdes_25g_pma_hard_reset_lane(
+      struct al_mod_serdes_grp_obj *obj,
+      enum al_mod_serdes_lane lane,
+      al_mod_bool enable)
+{
+	uint16_t reset_addr = (lane == AL_SRDS_LANE_0) ?
+		SERDES_25G_TOP_RESET_CTRL_LN0_ADDR :
+		SERDES_25G_TOP_RESET_CTRL_LN1_ADDR;
+
+	al_mod_serdes_25g_reg_masked_write(obj,
+		AL_SRDS_REG_PAGE_TOP,
+		reset_addr,
+		SERDES_25G_TOP_RESET_CTRL_LN0_CORE_SW_RESET_MASK,
+		SERDES_25G_TOP_RESET_CTRL_LN0_CORE_SW_RESET_SHIFT,
+		enable ? 1 : 0);
+}
+
 /******************************************************************************/
 /******************************************************************************/
 int al_mod_serdes_25g_handle_init(
@@ -3401,6 +3418,7 @@ int al_mod_serdes_25g_handle_init(
 	obj->tx_advanced_params_set = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_tx_advanced_params_set);
 	obj->tx_advanced_params_get = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_tx_advanced_params_get);
 	obj->rx_advanced_params_get = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_rx_advanced_params_get);
+	obj->pma_hard_reset_lane = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_pma_hard_reset_lane);
 	obj->tx_diag_info_get = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_tx_diag_info_get);
 	obj->rx_diag_info_get = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_rx_diag_info_get);
 	obj->mode_set_kr = AL_SRDS_ADV_SRVC(al_mod_serdes_25g_group_cfg_10g_mode);

@@ -6492,12 +6492,7 @@ static void al_mod_eth_lm_mode_apply(struct al_mod_eth_adapter		*adapter,
 		adapter->mac_mode = AL_ETH_MAC_MODE_KR_LL_25G;
 		adapter->link_config.active_speed = SPEED_25000;
 	} else {
-		/* force 25G MAC mode when using 25G SerDes */
-		if (adapter->serdes_obj->type_get() == AL_SRDS_TYPE_25G)
-			adapter->mac_mode = AL_ETH_MAC_MODE_KR_LL_25G;
-		else
-			adapter->mac_mode = AL_ETH_MAC_MODE_10GbE_Serial;
-
+		adapter->mac_mode = AL_ETH_MAC_MODE_10GbE_Serial;
 		adapter->link_config.active_speed = SPEED_10000;
 	}
 
@@ -6790,7 +6785,7 @@ static void al_mod_eth_lm_config(struct al_mod_eth_adapter *adapter)
 	case AL_ETH_LM_MAX_SPEED_25G:
 		params.default_mode = AL_ETH_LM_MODE_25G;
 		params.rx_equal = false;
-		params.sfp_detect_force_mode = true;
+		params.sfp_detect_force_mode = false;
 		break;
 	case AL_ETH_LM_MAX_SPEED_10G:
 		if (adapter->lt_en && adapter->an_en)
@@ -7084,6 +7079,36 @@ static int al_mod_eth_lm_mode_change(void *handle, enum al_mod_eth_lm_link_mode 
 
 	al_mod_eth_lm_mode_apply(adapter, new_mode);
 
+	/* ADV 25G: PMA hard reset + retimer TX CDR reset */
+	if (adapter->dev_id == AL_ETH_DEV_ID_ADVANCED &&
+		adapter->serdes_obj->pma_hard_reset_lane) {
+
+		/* PMA hard reset */
+		adapter->serdes_obj->pma_hard_reset_lane(
+			adapter->serdes_obj, adapter->serdes_lane, AL_TRUE);
+		al_mod_msleep(10);
+		adapter->serdes_obj->pma_hard_reset_lane(
+			adapter->serdes_obj, adapter->serdes_lane, AL_FALSE);
+		al_mod_msleep(50);
+
+		/* Retimer TX CDR reset — re-lock to new SerDes output */
+		if (adapter->retimer.exist) {
+			uint8_t bus = adapter->retimer.bus_id;
+			uint8_t addr = adapter->retimer.i2c_addr;
+			uint8_t tx_ch = adapter->retimer.tx_channel;
+
+			al_mod_eth_i2c_byte_write(adapter, bus, addr, 0xFC, 1 << tx_ch);
+			al_mod_eth_i2c_byte_write(adapter, bus, addr, 0xFF, 0x01);
+			al_mod_eth_i2c_byte_write(adapter, bus, addr, 0x0A, 0x0C);
+			al_mod_msleep(10);
+			al_mod_eth_i2c_byte_write(adapter, bus, addr, 0x0A, 0x00);
+			al_mod_msleep(200);
+		}
+
+		/* Force establish step to wait for retimer re-lock */
+		adapter->lm_context.speed_change = AL_TRUE;
+	}
+
 	return 0;
 }
 
@@ -7093,6 +7118,8 @@ static int al_mod_eth_group_lm_pre_establish(void *handle, enum al_mod_eth_lm_li
 {
 	struct al_mod_eth_adapter		*adapter = (struct al_mod_eth_adapter *)handle;
 	int rc = 0;
+
+	pr_debug("%s: old_mode:%d, new_mode:%d\n", __func__, old_mode, new_mode);
 
 	if (new_mode != AL_ETH_LM_MODE_DISCONNECTED) {
 		if (!adapter->up) {
