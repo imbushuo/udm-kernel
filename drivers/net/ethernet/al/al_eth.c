@@ -1195,6 +1195,55 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 		dev_err(&adapter->pdev->dev, "board info not available\n");
 		return -1;
 	}
+
+	/*
+	* CCR2004-1G-2XS-PCIe workaround: RouterBOOT does not populate the
+	* MAC scratchpad board_params (it uses an internal static table instead).
+	* For V3 ADV ports the scratchpad reads back as zero → media_type=RGMII.
+	* Apply hardcoded CCR2004 25G SFP28 configuration.
+	*/
+	dev_info(&adapter->pdev->dev,
+		"Board type: %d, original rev_id: %d, media_type: %d, SERDES group: %d, SERDES lane: %d\n",
+		adapter->board_type, adapter->orig_rev_id, params.media_type, params.serdes_grp, params.serdes_lane);
+
+	if (adapter->orig_rev_id >=3) {
+		dev_info(&adapter->pdev->dev,
+			"CCR2004 workaround: applying hardcoded board params for port %d\n",
+			adapter->port_num);
+
+		memset(&params, 0, sizeof(params));
+		params.media_type        = AL_ETH_BOARD_MEDIA_TYPE_25G_10G_AUTO;
+		params.sfp_plus_module_exist = AL_TRUE;
+		params.ref_clk_freq      = AL_ETH_REF_FREQ_500_MHZ;
+
+		params.retimer_exist     = AL_TRUE;
+		params.retimer_type = AL_ETH_RETIMER_DS_25;
+
+		params.phy_if            = AL_ETH_BOARD_PHY_IF_I2C;
+		params.dont_override_serdes = AL_FALSE;
+		params.serdes_grp        = AL_SRDS_GRP_E;  /* group 4, as per CCR2004 DTS board-cfg */
+
+		/* port 0 = SFP2 (HS lane 0, I2C bus 3, GPIO 496 + 3 mod-present) */
+		/* port 2 = SFP1 (HS lane 1, I2C bus 2, GPIO 496 + 2 mod-present) */
+		if (adapter->port_num == 0) {
+			params.serdes_lane    = 0;
+			params.i2c_adapter_id = 2;
+			// params.gpio_sfp_present = 496 + 3;
+			params.retimer_bus_id     = 1;
+			params.retimer_i2c_addr   = 0x18;
+			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_D;  /* RX ch3 */
+			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_B;  /* TX ch2 */
+		} else if (adapter->port_num == 2) {
+			params.serdes_lane    = 1;
+			params.i2c_adapter_id = 3;
+			// params.gpio_sfp_present   = 496 + 2;
+			params.retimer_bus_id     = 1;
+			params.retimer_i2c_addr   = 0x18;
+			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_A;  /* RX ch0 */
+			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_C;  /* TX ch1 */
+		}
+	}
+
 #ifdef AL_ETH_HAS_COMMON_MODE
 		adapter->common_mode = params.common_mode;
 #endif

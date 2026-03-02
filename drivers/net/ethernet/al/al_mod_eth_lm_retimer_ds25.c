@@ -227,8 +227,9 @@ static int al_mod_eth_lm_retimer_ds25_write_reg(struct al_mod_eth_lm_retimer	*ha
 					reg_addr,
 					&reg);
 
-		if (rc)
+		if (rc) {
 			return -EIO;
+		}
 
 		reg &= ~(reg_mask);
 	}
@@ -242,8 +243,9 @@ static int al_mod_eth_lm_retimer_ds25_write_reg(struct al_mod_eth_lm_retimer	*ha
 				   reg_addr,
 				   reg);
 
-	if (rc)
+	if (rc <= 0) {
 		return -EIO;
+	}
 
 	return 0;
 }
