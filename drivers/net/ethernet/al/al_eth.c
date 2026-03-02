@@ -6418,6 +6418,9 @@ static int al_mod_eth_i2c_data_write(void *context, uint8_t bus_id, uint8_t i2c_
 		return -ENOMEM;
 	}
 
+	msgs[0].buf[0] = reg_addr;
+  	memcpy(msgs[0].buf + 1, val, len);
+
 	i2c_adapter = i2c_get_adapter(bus_id);
 
 	if (i2c_adapter == NULL) {
@@ -7326,7 +7329,7 @@ static int al_mod_eth_v3_lm_init(struct al_mod_eth_adapter *adapter)
 	/* Since each eth port exists independently in Linux,
 	 * we want each to run the group_lm_flow
 	 */
-	group_lm_link_params.skip_group_flow = AL_FALSE;
+	group_lm_link_params.skip_group_flow = (adapter->rev_id >= AL_ETH_REV_ID_3);
 	group_lm_link_params.init_cb = NULL;
 	group_lm_link_params.lm_mode_change_cb = &al_mod_eth_lm_mode_change;
 	group_lm_link_params.update_link_status_cb =
