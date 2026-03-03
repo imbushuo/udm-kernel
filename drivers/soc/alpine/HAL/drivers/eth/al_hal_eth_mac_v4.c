@@ -2163,8 +2163,8 @@ static int mdio_10g_mac_wait_busy(struct al_eth_mac_obj *obj)
 				ETH_MAC_GEN_V4_MAC_50G_100G_MDIO_CFG_STATUS_ADDR);
 
 			if (mdio_cfg_status & ETH_MAC_GEN_V4_MAC_50G_100G_MDIO_CFG_STATUS_BUSY) {
-				if (count > 0)
-					al_dbg("eth [%s] mdio: still busy!\n", obj->name);
+				//if (count > 0)
+				//	al_dbg("eth [%s] mdio: still busy!\n", obj->name);
 			} else {
 				return 0;
 			}
@@ -2179,8 +2179,8 @@ static int mdio_10g_mac_wait_busy(struct al_eth_mac_obj *obj)
 				ETH_MAC_GEN_V4_MAC_50G_100G_MDIO_CFG_STATUS_ADDR);
 
 			if (mdio_cfg_status & ETH_MAC_GEN_V4_MAC_50G_100G_MDIO_CFG_STATUS_BUSY) {
-				if (count > 0)
-					al_dbg("eth [%s] mdio: still busy!\n", obj->name);
+				//if (count > 0)
+				//	al_dbg("eth [%s] mdio: still busy!\n", obj->name);
 			} else {
 				return 0;
 			}
@@ -2478,8 +2478,8 @@ static int mdio_read(struct al_eth_mac_obj *obj, uint32_t phy_addr, uint32_t dev
 		al_assert(0);
 
 	mdio_free(obj);
-	al_dbg("eth mdio read: phy_addr %x, device %x, reg %x val %x\n", phy_addr, device,
-		reg, *val);
+	//al_dbg("eth mdio read: phy_addr %x, device %x, reg %x val %x\n", phy_addr, device,
+	//	reg, *val);
 	return rc;
 }
 

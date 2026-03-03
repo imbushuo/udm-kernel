@@ -1215,6 +1215,7 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 		params.media_type        = AL_ETH_BOARD_MEDIA_TYPE_25G_10G_AUTO;
 		params.sfp_plus_module_exist = AL_TRUE;
 		params.ref_clk_freq      = AL_ETH_REF_FREQ_500_MHZ;
+		params.auto_fec_enable     = AL_TRUE;
 
 		params.retimer_exist     = AL_TRUE;
 		params.retimer_type = AL_ETH_RETIMER_DS_25;
@@ -1231,16 +1232,16 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 			// params.gpio_sfp_present = 496 + 3;
 			params.retimer_bus_id     = 1;
 			params.retimer_i2c_addr   = 0x18;
-			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_D;  /* RX ch3 */
-			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_B;  /* TX ch2 */
+			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_A;
+			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_B;
 		} else if (adapter->port_num == 2) {
 			params.serdes_lane    = 1;
 			params.i2c_adapter_id = 3;
 			// params.gpio_sfp_present   = 496 + 2;
 			params.retimer_bus_id     = 1;
 			params.retimer_i2c_addr   = 0x18;
-			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_A;  /* RX ch0 */
-			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_C;  /* TX ch1 */
+			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_D;
+			params.retimer_tx_channel = AL_ETH_RETIMER_CHANNEL_C;
 		}
 	}
 
@@ -4826,8 +4827,8 @@ al_mod_eth_alloc_rx_frag(struct al_mod_eth_adapter *adapter,
 		put_page(virt_to_head_page(data));
 		return -EIO;
 	}
-	netdev_dbg(rx_ring->netdev, "alloc frag %p, rx_info %p len %x skb size %x\n",
-		data, rx_info, rx_info->data_size, rx_info->frag_size);
+	//netdev_dbg(rx_ring->netdev, "alloc frag %p, rx_info %p len %x skb size %x\n",
+	//	data, rx_info, rx_info->data_size, rx_info->frag_size);
 
 	rx_info->data = data;
 
@@ -7092,7 +7093,9 @@ static int al_mod_eth_lm_mode_change(void *handle, enum al_mod_eth_lm_link_mode 
 		al_mod_msleep(50);
 
 		/* Retimer TX CDR reset — re-lock to new SerDes output */
-		if (adapter->retimer.exist) {
+		if (adapter->dev_id == AL_ETH_DEV_ID_ADVANCED &&
+			adapter->retimer.exist &&
+			!adapter->lm_context.speed_change) {  /* guard: only once */
 			uint8_t bus = adapter->retimer.bus_id;
 			uint8_t addr = adapter->retimer.i2c_addr;
 			uint8_t tx_ch = adapter->retimer.tx_channel;
@@ -7393,14 +7396,14 @@ static void al_mod_eth_err_events_task(struct work_struct *work)
 		else
 			ret = al_mod_eth_err_polling_is_avail(&adapter->hal_adapter);
 		if (!ret) {
-			netdev_dbg(adapter->netdev,
+			/*netdev_dbg(adapter->netdev,
 				   "%s: FIFOs are not fully initialized\n",
-				   __func__);
+				   __func__);*/
 			goto resched;
 		}
 
-		netdev_dbg(adapter->netdev,
-			    "%s: FIFOs are fully initialized\n", __func__);
+		//netdev_dbg(adapter->netdev,
+		//	    "%s: FIFOs are fully initialized\n", __func__);
 
 		adapter->eth_error_ready = true;
 	}

@@ -909,7 +909,7 @@ static struct al_mod_serdes_adv_tx_params optic_tx_params = {
 	.total_driver_units	= 0x13,
 	.c_plus_1		= 0x2,
 	.c_plus_2		= 0,
-	.c_minus_1		= 0,
+	.c_minus_1		= 0x2,
 	.slew_rate		= 0,
 };
 
@@ -1141,8 +1141,7 @@ static int retimer_full_config(struct al_mod_eth_lm_context *lm_context)
 		lm_context->mode != AL_ETH_LM_MODE_10G_DA)
 		config_params.da_len = 0;
 
-	if ((lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25) &&
-		!lm_context->speed_detection) {
+	if ((lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25)) {
 		if (lm_context->mode == AL_ETH_LM_MODE_25G)
 			config_params.speed = AL_ETH_LM_RETIMER_SPEED_25G;
 		else
@@ -1163,6 +1162,9 @@ static int retimer_full_config(struct al_mod_eth_lm_context *lm_context)
 						&config_params);
 		if (rc)
 			return rc;
+
+		/* Wait for retimer CDR to lock before gearbox reset (MikroTik waits 1s) */
+		al_mod_msleep(1000);
 
 		if (lm_context->serdes_obj->type_get() == AL_SRDS_TYPE_25G) {
 			lm_debug("%s: serdes 25G - perform tx and rx gearbox reset\n", __func__);
@@ -1337,8 +1339,8 @@ static int al_mod_eth_lm_retimer_25g_rx_adaptation_step(struct al_mod_eth_lm_con
 			break;
 
 		if (!lock) {
-			al_mod_dbg("%s: no signal detected on retimer Rx channel (%d)\n",
-				 __func__,  lm_context->retimer_channel);
+			al_mod_dbg("%s: no signal detected on retimer Rx channel (%s, %d)\n",
+				 __func__,  lm_context->adapter->name, lm_context->retimer_channel);
 
 			return -EIO;
 		}

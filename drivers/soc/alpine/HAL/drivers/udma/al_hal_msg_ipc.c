@@ -167,8 +167,8 @@ int al_msg_ipc_rx_buffer_add(
 	uint32_t flags_len = flags;
 	union al_udma_desc *rx_desc;
 
-	al_dbg("[%s %d]: add rx buffer.\n",
-		rx_dma_q->udma->name, rx_dma_q->qid);
+	//al_dbg("[%s %d]: add rx buffer.\n",
+	//	rx_dma_q->udma->name, rx_dma_q->qid);
 
 	if (unlikely(al_udma_available_get(rx_dma_q) < 1)) {
 		al_dbg("[%s]: rx q (%d) has no enough free descriptor\n",

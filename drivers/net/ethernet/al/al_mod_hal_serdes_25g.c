@@ -97,7 +97,7 @@ static int al_mod_serdes_25g_reg_read(
 		(struct al_mod_serdes_c_regs __iomem *)obj->regs_base;
 	uint32_t addr = 0;
 
-	al_mod_dbg("%s(%p, %d, %d, %u)\n", __func__, obj, page, type, offset);
+	// al_mod_dbg("%s(%p, %d, %d, %u)\n", __func__, obj, page, type, offset);
 
 	al_mod_assert(obj);
 	al_mod_assert(data);
@@ -122,7 +122,7 @@ static int al_mod_serdes_25g_reg_read(
 	al_mod_reg_write32(&regs_base->gen.reg_addr, addr);
 	*data = al_mod_reg_read32(&regs_base->gen.reg_data);
 
-	al_mod_dbg("%s: return(%u)\n", __func__, *data);
+	// al_mod_dbg("%s: return(%u)\n", __func__, *data);
 
 	return 0;
 }
@@ -138,7 +138,7 @@ static int al_mod_serdes_25g_reg_write(
 		(struct al_mod_serdes_c_regs __iomem *)obj->regs_base;
 	uint32_t addr = 0;
 
-	al_mod_dbg("%s(%p, %d, %d, %u)\n", __func__, obj, page, type, offset);
+	// al_mod_dbg("%s(%p, %d, %d, %u)\n", __func__, obj, page, type, offset);
 
 	al_mod_assert(obj);
 
@@ -161,7 +161,7 @@ static int al_mod_serdes_25g_reg_write(
 	al_mod_reg_write32(&regs_base->gen.reg_addr, addr);
 	al_mod_reg_write32(&regs_base->gen.reg_data, (data | SERDES_C_GEN_REG_DATA_STRB_MASK));
 
-	al_mod_dbg("%s: write(%u)\n", __func__, data);
+	// al_mod_dbg("%s: write(%u)\n", __func__, data);
 
 	return 0;
 }

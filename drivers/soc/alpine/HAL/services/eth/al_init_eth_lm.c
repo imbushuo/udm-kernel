@@ -709,8 +709,7 @@ static int retimer_full_config(struct al_eth_lm_context *lm_context)
 		lm_context->mode != AL_ETH_LM_MODE_10G_DA)
 		config_params.da_len = 0;
 
-	if ((lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25) &&
-		!lm_context->speed_detection) {
+	if ((lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25)) {
 		if (lm_context->mode == AL_ETH_LM_MODE_25G)
 			config_params.speed = AL_ETH_LM_RETIMER_SPEED_25G;
 		else
@@ -731,6 +730,9 @@ static int retimer_full_config(struct al_eth_lm_context *lm_context)
 						&config_params);
 		if (rc)
 			return rc;
+
+		/* Wait for retimer CDR to lock before gearbox reset (MikroTik waits 1s) */
+		al_msleep(1000);
 
 		if (lm_context->serdes_obj->type_get() == AL_SRDS_TYPE_25G) {
 			lm_debug("%s: serdes 25G - perform tx and rx gearbox reset\n", __func__);

@@ -2473,7 +2473,7 @@ int al_eth_rx_buffer_add(struct al_udma_q *rx_dma_q,
 	uint32_t flags_len = flags & ~AL_ETH_RX_FLAGS_TGTID_MASK;
 	union al_udma_desc *rx_desc;
 
-	al_dbg("[%s %d]: add rx buffer.\n", rx_dma_q->udma->name, rx_dma_q->qid);
+	// al_dbg("[%s %d]: add rx buffer.\n", rx_dma_q->udma->name, rx_dma_q->qid);
 
 #if 1
 	if (unlikely(al_udma_available_get(rx_dma_q) < 1)) {
