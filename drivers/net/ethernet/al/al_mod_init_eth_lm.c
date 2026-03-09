@@ -211,7 +211,7 @@ static void al_mod_eth_sfp_gpio_state_update(struct al_mod_eth_lm_context *lm_co
 
 	for (i = 0; i < AL_ETH_GPIO_MAX; i++)
 		if (changed & BIT(i))
-			pr_info("%s:%s %u -> %u\n", __func__, al_mod_gpio_of_names[i],
+			lm_debug("%s:%s %u -> %u\n", __func__, al_mod_gpio_of_names[i],
 			        !!(lm_context->sfp_gpio_state & BIT(i)), !!(state & BIT(i)));
 
 	state |= lm_context->sfp_gpio_state & SFP_F_TX_DISABLE;
@@ -909,7 +909,7 @@ static struct al_mod_serdes_adv_tx_params optic_tx_params = {
 	.total_driver_units	= 0x13,
 	.c_plus_1		= 0x2,
 	.c_plus_2		= 0,
-	.c_minus_1		= 0x2,
+	.c_minus_1		= 0,
 	.slew_rate		= 0,
 };
 
@@ -1024,6 +1024,11 @@ static void al_mod_eth_serdes_static_rx_params_set(struct al_mod_eth_lm_context 
 						lm_context->serdes_obj,
 						lm_context->lane,
 						&rx_params_br410);
+		else if (lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25)
+			lm_context->serdes_obj->rx_advanced_params_set(
+						lm_context->serdes_obj,
+						lm_context->lane,
+						&da_rx_params);
 		else if (lm_context->mode == AL_ETH_LM_MODE_1G_DA)
 			lm_context->serdes_obj->rx_advanced_params_set(
 						lm_context->serdes_obj,
@@ -1146,7 +1151,7 @@ static int retimer_full_config(struct al_mod_eth_lm_context *lm_context)
 		lm_context->mode != AL_ETH_LM_MODE_10G_DA)
 		config_params.da_len = 0;
 
-	if ((lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25)) {
+	if (lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25) {
 		if (lm_context->mode == AL_ETH_LM_MODE_25G)
 			config_params.speed = AL_ETH_LM_RETIMER_SPEED_25G;
 		else
@@ -1167,9 +1172,6 @@ static int retimer_full_config(struct al_mod_eth_lm_context *lm_context)
 						&config_params);
 		if (rc)
 			return rc;
-
-		/* Wait for retimer CDR to lock before gearbox reset (MikroTik waits 1s) */
-		al_mod_msleep(1000);
 
 		if (lm_context->serdes_obj->type_get() == AL_SRDS_TYPE_25G) {
 			lm_debug("%s: serdes 25G - perform tx and rx gearbox reset\n", __func__);
@@ -1267,9 +1269,8 @@ static al_mod_bool al_mod_eth_lm_retimer_signal_lock_check_step(struct al_mod_et
 		}
 
 		if (!signal_detect) {
-			if (signal_detect != last_channel_status->signal_detect)
-				lm_debug("%s: no signal detected on retimer channel %d\n", __func__,
-					channel);
+			al_mod_info("%s: no signal detected on retimer channel %d\n", __func__,
+				channel);
 			break;
 		}
 
@@ -1281,6 +1282,9 @@ static al_mod_bool al_mod_eth_lm_retimer_signal_lock_check_step(struct al_mod_et
 			cdr_lock = AL_FALSE;
 			rc = 0;
 		}
+
+		al_mod_info("%s: channel %d signal_detect=%d cdr_lock=%d force_reset=%d\n",
+			__func__, channel, signal_detect, cdr_lock, force_reset);
 
 		if (!force_reset && cdr_lock)
 			break;
@@ -1310,11 +1314,8 @@ static al_mod_bool al_mod_eth_lm_retimer_signal_lock_check_step(struct al_mod_et
 	lm_context->step_data.retimer_data.slc_state =
 		LM_STEP_RETIMER_SIGNAL_LOCK_INIT;
 
-	if (((signal_detect != last_channel_status->signal_detect) ||
-			(cdr_lock != last_channel_status->cdr_lock)) ||
-		last_channel_status->first_check)
-		lm_debug("%s: (channel %d) signal %d cdr lock %d rc:%d\n",
-			__func__, channel, signal_detect, (signal_detect) ? cdr_lock : 0, rc);
+	al_mod_info("%s: (channel %d) result: signal %d cdr lock %d lock=%d rc:%d\n",
+		__func__, channel, signal_detect, (signal_detect) ? cdr_lock : 0, *lock, rc);
 
 
 exit_in_progress:
@@ -1344,8 +1345,8 @@ static int al_mod_eth_lm_retimer_25g_rx_adaptation_step(struct al_mod_eth_lm_con
 			break;
 
 		if (!lock) {
-			al_mod_dbg("%s: no signal detected on retimer Rx channel (%s, %d)\n",
-				 __func__,  lm_context->adapter->name, lm_context->retimer_channel);
+			al_mod_dbg("%s: no signal detected on retimer Rx channel (%d)\n",
+				 __func__,  lm_context->retimer_channel);
 
 			return -EIO;
 		}
@@ -1839,7 +1840,7 @@ int al_mod_eth_lm_link_detection_step(struct al_mod_eth_lm_context	*lm_context,
 		if ((lm_context->link_state == AL_ETH_LM_LINK_DOWN) &&
 		    (lm_context->retimer.type != AL_ETH_LM_RETIMER_TYPE_NONE) &&
 		    (*new_mode != AL_ETH_LM_MODE_DISCONNECTED)) {
-			// if (*old_mode != *new_mode) {
+			{
 				lm_context->rx_param_dirty = 1;
 				lm_context->tx_param_dirty = 1;
 
@@ -1853,7 +1854,7 @@ int al_mod_eth_lm_link_detection_step(struct al_mod_eth_lm_context	*lm_context,
 				}
 
 				al_mod_udelay(AL_ETH_LM_RETIMER_CONFIG_DELAY);
-			// }
+			}
 
 			if (lm_context->speed_detection) {
 				if (lm_context->retimer.speed_detect == NULL) {
@@ -2028,10 +2029,47 @@ int al_mod_eth_lm_link_establish_step(struct al_mod_eth_lm_context	*lm_context,
 			}
 		}
 
-		if (lm_context->retimer.type != AL_ETH_LM_RETIMER_TYPE_NONE)
+		if (lm_context->retimer.type != AL_ETH_LM_RETIMER_TYPE_NONE) {
+			/* Reset SERDES lane and reconfigure retimer TX channel.
+			 * After ifdown/ifup, the SERDES TX may not be outputting
+			 * a signal. A per-lane SERDES reset restores TX output,
+			 * then we reconfigure the retimer TX channel with signal
+			 * now present. */
+			if (lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25) {
+				struct al_mod_eth_lm_retimer_config_params cfg;
+
+				al_mod_info("%s: resetting SERDES lane %d and reconfiguring "
+					"TX retimer channel %d\n", __func__,
+					lm_context->lane,
+					lm_context->retimer_tx_channel);
+
+				/* Per-lane SERDES reset via rx_equalization */
+				if (lm_context->serdes_obj->rx_equalization)
+					lm_context->serdes_obj->rx_equalization(
+						lm_context->serdes_obj,
+						lm_context->lane);
+
+				/* Reconfigure retimer TX channel with SERDES now active */
+				cfg.speed = (lm_context->mode == AL_ETH_LM_MODE_25G) ?
+					AL_ETH_LM_RETIMER_SPEED_25G :
+					AL_ETH_LM_RETIMER_SPEED_10G;
+				cfg.da_len = lm_context->da_len;
+				cfg.dir = AL_ETH_LM_RETIMER_CH_DIR_TX;
+
+				lm_context->retimer.config(&lm_context->retimer,
+					lm_context->retimer_tx_channel, &cfg);
+
+				if (lm_context->serdes_obj->type_get() == AL_SRDS_TYPE_25G) {
+					al_mod_eth_gearbox_reset(lm_context->adapter,
+						AL_TRUE, AL_FALSE);
+					al_mod_udelay(AL_ETH_LM_GEARBOX_RESET_DELAY);
+				}
+
+				al_mod_msleep(50);
+			}
 			LM_STEP_CHANGE_STATE(lm_context->step_data.establish_state,
 					     LM_STEP_ESTABLISH_RETIMER_SIGNAL_LOCK_CHECK);
-		else
+		} else
 			LM_STEP_CHANGE_STATE(lm_context->step_data.establish_state,
 					     LM_STEP_ESTABLISH_FINAL);
 
@@ -2050,7 +2088,7 @@ int al_mod_eth_lm_link_establish_step(struct al_mod_eth_lm_context	*lm_context,
 			break;
 
 		if (!lock) {
-			al_mod_info("%s: %s: Failed to lock tx channel\n", __func__, lm_context->adapter->name);
+			al_mod_info("%s: Failed to lock tx channel\n", __func__);
 			rc = -EIO;
 			goto exit_error;
 		}
