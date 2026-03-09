@@ -1203,8 +1203,18 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 	* Apply hardcoded CCR2004 25G SFP28 configuration.
 	*/
 	dev_info(&adapter->pdev->dev,
-		"Board type: %d, original rev_id: %d, media_type: %d, SERDES group: %d, SERDES lane: %d\n",
-		adapter->board_type, adapter->orig_rev_id, params.media_type, params.serdes_grp, params.serdes_lane);
+		"Board type: %d, original rev_id: %d, media_type: %d, Port: %d, Ref Clk Freq: %d, SERDES group: %d, SERDES lane: %d, Retimer Exist: %d, Retimer Bus: %d, Retimer Addr: 0x%x, GPIO Present: %d\n",
+		adapter->board_type,
+		adapter->orig_rev_id,
+		params.media_type,
+		adapter->port_num,
+		params.ref_clk_freq,
+		params.serdes_grp,
+		params.serdes_lane,
+		params.retimer_exist,
+		params.retimer_bus_id,
+		params.retimer_i2c_addr,
+		params.gpio_sfp_present);
 
 	if (adapter->orig_rev_id >=3) {
 		dev_info(&adapter->pdev->dev,
@@ -1229,7 +1239,7 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 		if (adapter->port_num == 0) {
 			params.serdes_lane    = 0;
 			params.i2c_adapter_id = 2;
-			// params.gpio_sfp_present = 496 + 3;
+			// params.gpio_sfp_present = 102;
 			params.retimer_bus_id     = 1;
 			params.retimer_i2c_addr   = 0x18;
 			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_A;
@@ -1237,7 +1247,7 @@ static int al_mod_eth_board_params_init_integrated(struct al_mod_eth_adapter *ad
 		} else if (adapter->port_num == 2) {
 			params.serdes_lane    = 1;
 			params.i2c_adapter_id = 3;
-			// params.gpio_sfp_present   = 496 + 2;
+			// params.gpio_sfp_present   = 103;
 			params.retimer_bus_id     = 1;
 			params.retimer_i2c_addr   = 0x18;
 			params.retimer_channel    = AL_ETH_RETIMER_CHANNEL_D;
@@ -6591,6 +6601,21 @@ static int al_mod_eth_serdes_init(struct al_mod_eth_adapter *adapter)
 		if (!adapter->serdes_obj) {
 			netdev_err(adapter->netdev, "serdes_obj get failed!\n");
 			return -EIO;
+		}
+
+		/* Clear SERDES group 4 control register bits[7:6] — required for retimer CDR lock.
+		* MikroTik does this during retimer reset in init_module (offset 300 from regs_base).
+		* In the HSSP register map this is "reserved" but the 25G AVG SERDES uses it. */
+		pr_info("%s: serdes_obj regs_base = %px\n", adapter->name, adapter->serdes_obj->regs_base);
+		if (adapter->dev_id == AL_ETH_DEV_ID_ADVANCED) {
+			pr_info("%s: Clearing SERDES grp4 reg@0x12C bits[7:6] for retimer CDR lock\n", adapter->name);
+			if (adapter->serdes_obj && adapter->serdes_obj->regs_base) {
+				void __iomem *srds_reg = (void __iomem *)((u8 __iomem *)adapter->serdes_obj->regs_base + 300);
+				u32 val = readl(srds_reg);
+				val &= ~0xC0;  /* clear bits [7:6] */
+				writel(val, srds_reg);
+				netdev_info(adapter->netdev, "SERDES grp4 reg@0x12C: cleared bits[7:6]\n");
+			}
 		}
 
 		if (adapter->live_update_restore_state &&

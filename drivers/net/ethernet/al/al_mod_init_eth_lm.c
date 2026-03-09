@@ -211,7 +211,7 @@ static void al_mod_eth_sfp_gpio_state_update(struct al_mod_eth_lm_context *lm_co
 
 	for (i = 0; i < AL_ETH_GPIO_MAX; i++)
 		if (changed & BIT(i))
-			lm_debug("%s:%s %u -> %u\n", __func__, al_mod_gpio_of_names[i],
+			pr_info("%s:%s %u -> %u\n", __func__, al_mod_gpio_of_names[i],
 			        !!(lm_context->sfp_gpio_state & BIT(i)), !!(state & BIT(i)));
 
 	state |= lm_context->sfp_gpio_state & SFP_F_TX_DISABLE;
@@ -967,6 +967,11 @@ static void al_mod_eth_serdes_static_tx_params_set(struct al_mod_eth_lm_context 
 						lm_context->serdes_obj,
 						lm_context->lane,
 						&tx_params_br410);
+		else if (lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25)
+			lm_context->serdes_obj->tx_advanced_params_set(
+						lm_context->serdes_obj,
+						lm_context->lane,
+						&da_tx_params);
 		else if (lm_context->mode == AL_ETH_LM_MODE_1G_DA)
 			lm_context->serdes_obj->tx_advanced_params_set(
 						lm_context->serdes_obj,
@@ -1834,7 +1839,7 @@ int al_mod_eth_lm_link_detection_step(struct al_mod_eth_lm_context	*lm_context,
 		if ((lm_context->link_state == AL_ETH_LM_LINK_DOWN) &&
 		    (lm_context->retimer.type != AL_ETH_LM_RETIMER_TYPE_NONE) &&
 		    (*new_mode != AL_ETH_LM_MODE_DISCONNECTED)) {
-			if (*old_mode != *new_mode) {
+			// if (*old_mode != *new_mode) {
 				lm_context->rx_param_dirty = 1;
 				lm_context->tx_param_dirty = 1;
 
@@ -1848,7 +1853,7 @@ int al_mod_eth_lm_link_detection_step(struct al_mod_eth_lm_context	*lm_context,
 				}
 
 				al_mod_udelay(AL_ETH_LM_RETIMER_CONFIG_DELAY);
-			}
+			// }
 
 			if (lm_context->speed_detection) {
 				if (lm_context->retimer.speed_detect == NULL) {

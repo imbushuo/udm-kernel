@@ -47,6 +47,7 @@ struct retimer_config_reg {
 
 /** 25G TX channel */
 static struct retimer_config_reg retimer_ds25_25g_mode_tx_ch[] = {
+	{.addr = 0x0A, .value = 0x0C, .mask = 0xff },
 	{.addr = 0x2F, .value = 0x54, .mask = 0xff },
 	{.addr = 0x31, .value = 0x20, .mask = 0xff },
 	{.addr = 0x1E, .value = 0xE9, .mask = 0xff },
@@ -75,6 +76,7 @@ static struct retimer_config_reg retimer_ds25_25g_mode_tx_ch[] = {
 	{.addr = 0x3D, .value = 0x94, .mask = 0xff },
 	{.addr = 0x3F, .value = 0x40, .mask = 0xff },
 	{.addr = 0x3E, .value = 0x43, .mask = 0xff },
+	{.addr = 0x0A, .value = 0x00, .mask = 0xff },
 };
 
 /** 25G RX channel */
