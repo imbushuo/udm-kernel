@@ -47,6 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "al_mod_hal_eth.h"
 #include "al_mod_init_eth_kr.h"
 #include "al_mod_hal_eth_mac_regs.h"
+#include "al_mod_hal_serdes_25g_regs.h"
 
 /* delay before checking link status with new serdes parameters (uSec) */
 #define AL_ETH_LM_LINK_STATUS_DELAY	1000
@@ -2038,16 +2039,52 @@ int al_mod_eth_lm_link_establish_step(struct al_mod_eth_lm_context	*lm_context,
 			if (lm_context->retimer.type == AL_ETH_LM_RETIMER_TYPE_DS_25) {
 				struct al_mod_eth_lm_retimer_config_params cfg;
 
-				al_mod_info("%s: resetting SERDES lane %d and reconfiguring "
+				al_mod_dbg("%s: resetting SERDES lane %d and reconfiguring "
 					"TX retimer channel %d\n", __func__,
 					lm_context->lane,
 					lm_context->retimer_tx_channel);
 
-				/* Per-lane SERDES reset via rx_equalization */
-				if (lm_context->serdes_obj->rx_equalization)
-					lm_context->serdes_obj->rx_equalization(
-						lm_context->serdes_obj,
-						lm_context->lane);
+				/* Lightweight per-lane SERDES reset: toggle LNx_RST_N
+				 * without the full RX equalization retry loop */
+				{
+					struct al_mod_serdes_c_regs __iomem *sregs =
+						(struct al_mod_serdes_c_regs __iomem *)
+						lm_context->serdes_obj->regs_base;
+					uint32_t reset_bit = (lm_context->lane == 0) ?
+						SERDES_C_GEN_RST_LN0_RST_N :
+						SERDES_C_GEN_RST_LN1_RST_N;
+					uint32_t ready_bit = (lm_context->lane == 0) ?
+						SERDES_C_GEN_STATUS_LN0_RST_PD_READY :
+						SERDES_C_GEN_STATUS_LN1_RST_PD_READY;
+					uint32_t ready_mask = ready_bit |
+						SERDES_C_GEN_STATUS_CM0_RST_PD_READY |
+						SERDES_C_GEN_STATUS_CM0_OK_O;
+					int timeout_us = 10000; /* 10ms */
+
+					/* Deassert lane reset */
+					al_mod_reg_write32_masked(
+						&sregs->gen.rst, reset_bit, 0);
+					al_mod_udelay(500);
+
+					/* Reassert lane reset */
+					al_mod_reg_write32_masked(
+						&sregs->gen.rst, reset_bit, reset_bit);
+
+					/* Wait for lane ready */
+					while (timeout_us > 0) {
+						uint32_t st = al_mod_reg_read32(
+							&sregs->gen.status);
+						if ((st & ready_mask) == ready_mask)
+							break;
+						al_mod_udelay(10);
+						timeout_us -= 10;
+					}
+					if (timeout_us <= 0)
+						al_mod_warn("%s: SERDES lane %d reset "
+							"ready timeout\n",
+							__func__,
+							lm_context->lane);
+				}
 
 				/* Reconfigure retimer TX channel with SERDES now active */
 				cfg.speed = (lm_context->mode == AL_ETH_LM_MODE_25G) ?
