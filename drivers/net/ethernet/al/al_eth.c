@@ -88,6 +88,7 @@
 #include "al_mod_hal_unit_adapter.h"
 #include "al_mod_hal_pbs_utils.h"
 #include "al_mod_hal_pbs_regs.h"
+#include "al_mod_hal_eth_mac_regs.h"
 
 #ifndef CONFIG_ARCH_ALPINE
 #include "al_mod_tam.h"
@@ -6237,6 +6238,15 @@ static int al_mod_eth_up(struct al_mod_eth_adapter *adapter)
 	if (adapter->mac_started)
 		adapter->mac_started = false;
 
+	/* Clear local fault assertion that was set during al_mod_eth_down */
+	if (adapter->mac_mode == AL_ETH_MAC_MODE_10GbE_Serial ||
+	    adapter->mac_mode == AL_ETH_MAC_MODE_KR_LL_25G) {
+		struct al_mod_eth_mac_regs *mac_regs =
+			(struct al_mod_eth_mac_regs *)adapter->hal_adapter.mac_regs_base;
+		al_mod_reg_write32_masked(&mac_regs->gen.mac_10g_cfg,
+			ETH_MAC_GEN_MAC_10G_CFG_TX_LOC_FAULT, 0);
+	}
+
 	/* enable the mac tx and rx paths */
 	al_mod_eth_mac_start(&adapter->hal_adapter);
 
@@ -6690,6 +6700,19 @@ static void al_mod_eth_down(struct al_mod_eth_adapter *adapter)
 	if (adapter->err_events_enabled) {
 		cancel_delayed_work_sync(&adapter->err_events_task);
 		adapter->eth_error_ready = false;
+	}
+
+	/* Assert local fault on the PCS TX so the peer detects link-down.
+	 * Must be done before MAC stop, while PCS is still active. */
+	if (adapter->mac_mode == AL_ETH_MAC_MODE_10GbE_Serial ||
+	    adapter->mac_mode == AL_ETH_MAC_MODE_KR_LL_25G) {
+		struct al_mod_eth_mac_regs *mac_regs =
+			(struct al_mod_eth_mac_regs *)adapter->hal_adapter.mac_regs_base;
+		al_mod_reg_write32_masked(&mac_regs->gen.mac_10g_cfg,
+			ETH_MAC_GEN_MAC_10G_CFG_TX_LOC_FAULT,
+			ETH_MAC_GEN_MAC_10G_CFG_TX_LOC_FAULT);
+		/* Give the peer time to see the fault indication */
+		al_mod_udelay(1000);
 	}
 
 	al_mod_eth_hw_stop(adapter);
